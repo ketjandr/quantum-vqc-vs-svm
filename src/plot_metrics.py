@@ -1,11 +1,16 @@
 """
-Accuracy Metric Plots
----------------------
-Side‑by‑side comparison of SVM vs VQC classification metrics
-across different numbers of input features.
+Accuracy & Runtime Metric Plots
+---------------------------------
+Side‑by‑side comparison of SVM vs VQC classification metrics,
+plus training wall‑clock time and peak memory scaling across
+16–784 MNIST features.  If benchmark CSVs exist in results/,
+runtime plots are generated automatically.
 """
 
+import os
+
 import matplotlib.pyplot as plt
+import numpy as np
 
 # ── SVM experiment results ───────────────────────────────────────────────────
 SVM_NUM_FEATURES = [16, 36, 64, 100, 144, 196, 256, 324, 400, 484, 576, 676, 784]
@@ -39,7 +44,22 @@ def _plot_metrics(ax, num_features, accuracy, precision, recall, f1, title):
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
-def main():
+def _load_benchmark_csv(path):
+    """Load a benchmark CSV if it exists; return dict of lists or None."""
+    if not os.path.isfile(path):
+        return None
+    import csv
+    data = {}
+    with open(path) as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            for key, val in row.items():
+                data.setdefault(key, []).append(float(val))
+    return data
+
+
+def plot_accuracy():
+    """Original accuracy metric side‑by‑side plot."""
     fig, (ax_svm, ax_vqc) = plt.subplots(1, 2, figsize=(12, 6))
 
     _plot_metrics(
@@ -54,6 +74,53 @@ def main():
     )
 
     plt.tight_layout(w_pad=3)
+
+
+def plot_runtime_scaling():
+    """Wall‑clock time & peak memory: VQC vs SVM (from benchmark CSVs)."""
+    results_dir = "./results/"
+    svm_data = _load_benchmark_csv(os.path.join(results_dir, "svm_benchmark.csv"))
+    vqc_data = _load_benchmark_csv(os.path.join(results_dir, "vqc_benchmark.csv"))
+
+    if svm_data is None and vqc_data is None:
+        print("No benchmark CSVs found in results/ — skipping runtime plots.")
+        print("Run  python src/benchmark_runner.py  first to generate them.")
+        return
+
+    fig, (ax_time, ax_mem) = plt.subplots(1, 2, figsize=(13, 5))
+
+    # ── Wall‑clock time ──
+    if svm_data:
+        ax_time.plot(svm_data["n_features"], svm_data["wall_time_s"],
+                     marker="s", label="SVM (classical)")
+    if vqc_data:
+        ax_time.plot(vqc_data["n_features"], vqc_data["wall_time_s"],
+                     marker="^", label="VQC (quantum sim)")
+    ax_time.set_xlabel("Number of Features")
+    ax_time.set_ylabel("Training Time (s)")
+    ax_time.set_title("Training Wall‑Clock Time Scaling")
+    ax_time.legend()
+    ax_time.grid(True, linestyle="--", alpha=0.6)
+
+    # ── Peak memory ──
+    if svm_data:
+        ax_mem.plot(svm_data["n_features"], svm_data["peak_memory_kb"],
+                    marker="s", label="SVM (classical)")
+    if vqc_data:
+        ax_mem.plot(vqc_data["n_features"], vqc_data["peak_memory_kb"],
+                    marker="^", label="VQC (quantum sim)")
+    ax_mem.set_xlabel("Number of Features")
+    ax_mem.set_ylabel("Peak Memory (KB)")
+    ax_mem.set_title("Peak Memory Usage Scaling")
+    ax_mem.legend()
+    ax_mem.grid(True, linestyle="--", alpha=0.6)
+
+    plt.tight_layout(w_pad=3)
+
+
+def main():
+    plot_accuracy()
+    plot_runtime_scaling()
     plt.show()
 
 

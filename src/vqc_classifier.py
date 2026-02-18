@@ -3,10 +3,13 @@ VQC Classification on MNIST
 -----------------------------
 Trains a Variational Quantum Classifier (VQC) on two selected digit classes
 from the MNIST dataset using dimensionality reduction (TruncatedSVD + t‑SNE)
-and evaluates accuracy metrics on the test set.
+and evaluates accuracy metrics on the test set.  Profiles wall-clock time
+with time.perf_counter() and peak memory with tracemalloc to support
+heterogeneous runtime analysis.
 """
 
 import time
+import tracemalloc
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -137,10 +140,14 @@ def main():
     ))
 
     # Train
-    start = time.time()
+    tracemalloc.start()
+    start = time.perf_counter()
     vqc.fit(X_train, y_train)
-    training_time = time.time() - start
-    print(f"Training Time: {training_time:.2f} seconds")
+    training_time = time.perf_counter() - start
+    _, peak_memory = tracemalloc.get_traced_memory()  # bytes
+    tracemalloc.stop()
+    print(f"Training Time: {training_time:.4f} seconds")
+    print(f"Peak Memory:   {peak_memory / 1024:.2f} KB")
 
     # Prepare test data
     X_test = np.concatenate((zeros_test, ones_test))
